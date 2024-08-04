@@ -1,10 +1,7 @@
 // utils/redisClient.ts
 import Redis from "ioredis";
-
-const redisClient = new Redis(
-  process?.env?.REDIS_URL ?? "redis://localhost:6379",
-  { tls: {} }
-);
+const redis = "redis://" + (process?.env?.REDIS_URL ?? "localhost:6379");
+const redisClient = new Redis(redis, { tls: {} });
 
 redisClient.on("connect", () => {
   console.log("Connected to Redis");
