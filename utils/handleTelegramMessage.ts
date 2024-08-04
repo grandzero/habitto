@@ -1,13 +1,21 @@
 // utils/handleTelegramMessage.ts
 import axios from "axios";
-import { addHabit, listHabits, removeHabit } from "./habitManager";
-import { connectWallet, getTokenBalance, transferTokens } from "./wallet";
+import { addHabit, listHabits } from "./habitManager";
+import { connectWallet } from "./wallet";
 import { getSession, setSession } from "./userSessions";
-import { mainMenu, viewProgress } from "../components/messages";
+import {
+  mainMenu,
+  connectWalletInstructions,
+  viewProgress,
+} from "../components/messages";
 
 const TELEGRAM_API_URL = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`;
 
-const sendMessage = async (chatId: number, text: string, options?: object) => {
+const sendMessage = async (
+  chatId: number,
+  text: string,
+  options: object = {}
+) => {
   await axios.post(`${TELEGRAM_API_URL}/sendMessage`, {
     chat_id: chatId,
     text,
@@ -15,10 +23,10 @@ const sendMessage = async (chatId: number, text: string, options?: object) => {
   });
 };
 
-export const handleTelegramMessage = async (message: any) => {
+export const handleTelegramMessage = async (message: any, command?: string) => {
   const chatId = message.chat.id;
-  const text = message.text;
-  const session = (await getSession(chatId)) || { state: "idle" };
+  const text = command ? command : message.text;
+  let session = (await getSession(chatId)) || { state: "idle" };
 
   switch (session.state) {
     case "idle":
@@ -35,8 +43,19 @@ export const handleTelegramMessage = async (message: any) => {
         await sendMessage(
           chatId,
           habits.length
-            ? `Your habits:\n${habits.join("\n")}`
+            ? `Your habits:\n${habits
+                .map((habit: any, index: number) => `${index + 1}. ${habit}`)
+                .join("\n")}`
             : "You have no habits."
+        );
+      } else if (text === "/connect") {
+        session.state = "connectingWallet";
+        await setSession(chatId, session);
+        await sendMessage(chatId, connectWalletInstructions.text);
+      } else {
+        await sendMessage(
+          chatId,
+          "Unrecognized command. Please use /start to see available options."
         );
       }
       break;
@@ -48,9 +67,54 @@ export const handleTelegramMessage = async (message: any) => {
       await setSession(chatId, session);
       break;
 
-    // Additional cases for other states and commands
+    case "connectingWallet":
+      const walletAddress = text;
+      const connectWalletResponse = await connectWallet(walletAddress);
+      if (connectWalletResponse.success) {
+        await sendMessage(chatId, "Wallet connected successfully!");
+        session = { ...session, state: "idle", walletAddress };
+        await setSession(chatId, session);
+      } else {
+        await sendMessage(chatId, `Error: ${connectWalletResponse.message}`);
+        session.state = "idle";
+        await setSession(chatId, session);
+      }
+      break;
 
     default:
-      await sendMessage(chatId, "Unrecognized command.");
+      await sendMessage(
+        chatId,
+        "Unrecognized command or invalid state. Please use /start."
+      );
+      session.state = "idle";
+      await setSession(chatId, session);
+  }
+};
+
+export const handleCallbackQuery = async (callbackQuery: any) => {
+  const { data, message } = callbackQuery;
+  const chatId = message.chat.id;
+
+  // Handle the callback data from the inline keyboards
+  switch (data) {
+    case "create_habit":
+      await handleTelegramMessage({ chat: { id: chatId }, text: "/newhabit" });
+      break;
+    case "view_habits":
+      await handleTelegramMessage({
+        chat: { id: chatId },
+        text: "/listhabits",
+      });
+      break;
+    case "connect_wallet":
+      await handleTelegramMessage({ chat: { id: chatId }, text: "/connect" });
+      break;
+    case "view_progress":
+      await sendMessage(chatId, viewProgress.text, {
+        reply_markup: { inline_keyboard: viewProgress.options },
+      });
+      break;
+    default:
+      await sendMessage(chatId, "Unknown action.");
   }
 };
