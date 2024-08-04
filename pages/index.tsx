@@ -1,5 +1,4 @@
-// pages/index.tsx
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import styles from "../styles/Home.module.css";
 
@@ -24,16 +23,18 @@ const Home = () => {
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check for Telegram user data in URL or local storage
-    const storedUser = localStorage.getItem("tgUser");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      const params = new URLSearchParams(window.location.search);
-      if (params.has("id")) {
-        const userData = Object.fromEntries(params.entries()) as any;
-        localStorage.setItem("tgUser", JSON.stringify(userData));
-        setUser(userData);
+    // Only run this code on the client side
+    if (typeof window !== "undefined") {
+      const storedUser = localStorage.getItem("tgUser");
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      } else {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has("id")) {
+          const userData = Object.fromEntries(params.entries()) as any;
+          localStorage.setItem("tgUser", JSON.stringify(userData));
+          setUser(userData);
+        }
       }
     }
   }, []);
@@ -73,15 +74,18 @@ const Home = () => {
           {!user ? (
             <div className={styles.card}>
               <h3>Login with Telegram</h3>
-              <script
-                async
-                src="https://telegram.org/js/telegram-widget.js?7"
-                data-telegram-login="your_bot_username" // replace with your bot's username
-                data-size="large"
-                data-radius="10"
-                data-auth-url={`${window.location.origin}/api/auth`}
-                data-request-access="write"
-              ></script>
+              {/* Conditionally render the script only on the client side */}
+              {typeof window !== "undefined" && (
+                <script
+                  async
+                  src="https://telegram.org/js/telegram-widget.js?7"
+                  data-telegram-login="your_bot_username" // replace with your bot's username
+                  data-size="large"
+                  data-radius="10"
+                  data-auth-url="/api/auth"
+                  data-request-access="write"
+                ></script>
+              )}
             </div>
           ) : (
             <div className={styles.card}>
