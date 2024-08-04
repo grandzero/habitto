@@ -1,26 +1,38 @@
 // pages/index.tsx
-import { GetServerSideProps } from "next";
-import React from "react";
-import Head from "next/head";
+import { useState } from "react";
+import axios from "axios";
 import styles from "../styles/Home.module.css";
 
-interface HomeProps {
-  botStatus: string;
-  usersCount: number;
+interface HabitProps {
+  habits: string[];
 }
 
-const Home: React.FC<HomeProps> = ({ botStatus, usersCount }) => {
+const Home = () => {
+  const [chatId, setChatId] = useState<string>("");
+  const [habits, setHabits] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const fetchHabits = async () => {
+    setLoading(true);
+    try {
+      setError(null);
+      const response = await axios.get<HabitProps>(
+        `/api/habits?chatId=${chatId}`
+      );
+      setHabits(response.data.habits);
+    } catch (error) {
+      setError(
+        "Failed to fetch habits. Please check the chat ID and try again."
+      );
+      setHabits([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={styles.container}>
-      <Head>
-        <title>Habit Tracking Bot</title>
-        <meta
-          name="description"
-          content="A Telegram bot for tracking habits and earning rewards."
-        />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
       <main className={styles.main}>
         <h1 className={styles.title}>Welcome to Habit Tracking Bot</h1>
         <p className={styles.description}>
@@ -30,33 +42,38 @@ const Home: React.FC<HomeProps> = ({ botStatus, usersCount }) => {
 
         <div className={styles.grid}>
           <div className={styles.card}>
-            <h3>Bot Status &rarr;</h3>
-            <p>{botStatus}</p>
-          </div>
-
-          <div className={styles.card}>
-            <h3>Total Users &rarr;</h3>
-            <p>{usersCount}</p>
-          </div>
-
-          <div className={styles.card}>
-            <h3>How to Use &rarr;</h3>
-            <p>
-              Start by chatting with the bot on Telegram. Use the /start command
-              to begin tracking your habits and earning rewards.
-            </p>
-          </div>
-
-          <div className={styles.card}>
-            <h3>Features &rarr;</h3>
-            <p>
-              <ul>
-                <li>Create and track daily habits</li>
-                <li>Earn tokens for consistency</li>
-                <li>Connect your TON wallet</li>
-                <li>Monitor your progress</li>
-              </ul>
-            </p>
+            <h3>View Your Habits</h3>
+            <div>
+              <label htmlFor="chatId">Enter your Telegram chat ID:</label>
+              <input
+                type="text"
+                id="chatId"
+                value={chatId}
+                onChange={(e) => setChatId(e.target.value)}
+                placeholder="Your Telegram chat ID"
+                className={styles.input}
+              />
+              <button
+                onClick={fetchHabits}
+                disabled={loading}
+                className={styles.button}
+              >
+                {loading ? "Loading..." : "Fetch Habits"}
+              </button>
+            </div>
+            {error && <p className={styles.error}>{error}</p>}
+            <div>
+              <h3>Your Habits:</h3>
+              {habits.length > 0 ? (
+                <ul>
+                  {habits.map((habit, index) => (
+                    <li key={index}>{habit}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No habits found. Try creating some with the bot!</p>
+              )}
+            </div>
           </div>
         </div>
       </main>
@@ -72,20 +89,6 @@ const Home: React.FC<HomeProps> = ({ botStatus, usersCount }) => {
       </footer>
     </div>
   );
-};
-
-// Fetch bot status and other data server-side
-export const getServerSideProps: GetServerSideProps = async () => {
-  // Fetch bot status and users count (dummy data for example)
-  const botStatus = "Online";
-  const usersCount = 123; // Replace with actual user count logic
-
-  return {
-    props: {
-      botStatus,
-      usersCount,
-    },
-  };
 };
 
 export default Home;
