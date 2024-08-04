@@ -3,11 +3,7 @@ import axios from "axios";
 import { addHabit, listHabits } from "./habitManager";
 import { connectWallet } from "./wallet";
 import { getSession, setSession } from "./userSessions";
-import {
-  mainMenu,
-  connectWalletInstructions,
-  viewProgress,
-} from "../components/messages";
+import { mainMenu, connectWalletInstructions } from "../components/messages";
 
 const TELEGRAM_API_URL = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`;
 
@@ -25,38 +21,43 @@ const sendMessage = async (
 
 export const handleTelegramMessage = async (message: any, command?: string) => {
   const chatId = message.chat.id;
-  const text = command ? command : message.text;
+  const text = command ? command : message.text.toLowerCase().trim();
   let session = (await getSession(chatId)) || { state: "idle" };
 
   switch (session.state) {
     case "idle":
-      if (text === "/start") {
-        await sendMessage(chatId, mainMenu.text, {
-          reply_markup: { inline_keyboard: mainMenu.options },
-        });
-      } else if (text === "/newhabit") {
-        session.state = "creatingHabit";
-        await setSession(chatId, session);
-        await sendMessage(chatId, "Please describe your new habit:");
-      } else if (text === "/listhabits") {
-        const habits = await listHabits(chatId);
-        await sendMessage(
-          chatId,
-          habits.length
-            ? `Your habits:\n${habits
-                .map((habit: any, index: number) => `${index + 1}. ${habit}`)
-                .join("\n")}`
-            : "You have no habits."
-        );
-      } else if (text === "/connect") {
-        session.state = "connectingWallet";
-        await setSession(chatId, session);
-        await sendMessage(chatId, connectWalletInstructions.text);
-      } else {
-        await sendMessage(
-          chatId,
-          "Unrecognized command. Please use /start to see available options."
-        );
+      switch (text) {
+        case "/start":
+          await sendMessage(chatId, mainMenu.text, {
+            reply_markup: { inline_keyboard: mainMenu.options },
+          });
+          break;
+        case "/newhabit":
+          session.state = "creatingHabit";
+          await setSession(chatId, session);
+          await sendMessage(chatId, "Please describe your new habit:");
+          break;
+        case "/listhabits":
+          const habits = await listHabits(chatId);
+          await sendMessage(
+            chatId,
+            habits.length
+              ? `Your habits:\n${habits
+                  .map((habit: any, index: number) => `${index + 1}. ${habit}`)
+                  .join("\n")}`
+              : "You have no habits."
+          );
+          break;
+        case "/connect":
+          session.state = "connectingWallet";
+          await setSession(chatId, session);
+          await sendMessage(chatId, connectWalletInstructions.text);
+          break;
+        default:
+          await sendMessage(
+            chatId,
+            "Unrecognized command. Please use /start to see available options."
+          );
       }
       break;
 
@@ -108,11 +109,6 @@ export const handleCallbackQuery = async (callbackQuery: any) => {
       break;
     case "connect_wallet":
       await handleTelegramMessage({ chat: { id: chatId }, text: "/connect" });
-      break;
-    case "view_progress":
-      await sendMessage(chatId, viewProgress.text, {
-        reply_markup: { inline_keyboard: viewProgress.options },
-      });
       break;
     default:
       await sendMessage(chatId, "Unknown action.");
