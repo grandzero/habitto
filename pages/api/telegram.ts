@@ -1,5 +1,4 @@
 // pages/api/telegram.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import {
   handleTelegramMessage,
@@ -11,27 +10,15 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
     const { message, callback_query } = req.body;
 
     if (message) {
-      const text = message.text.toLowerCase();
-
-      // Handling /start and /connect commands explicitly
-      switch (text) {
-        case "/start":
-          await handleTelegramMessage(message, "start");
-          break;
-        case "/connect":
-          await handleTelegramMessage(message, "connect");
-          break;
-        default:
-          await handleTelegramMessage(message);
-          break;
-      }
+      console.log("Incoming message:", message);
+      await handleTelegramMessage(message);
     } else if (callback_query) {
-      // Handle callback queries from inline buttons
+      console.log("Incoming callback query:", callback_query);
       await handleCallbackQuery(callback_query);
     }
 
     res.status(200).end();
   } else {
-    res.status(405).json({ error: "Method not allowed" });
+    res.status(200).send("Use POST method to interact with this bot.");
   }
 };
