@@ -1,5 +1,5 @@
 // pages/index.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import styles from "../styles/Home.module.css";
 
@@ -7,13 +7,38 @@ interface HabitProps {
   habits: string[];
 }
 
+interface TelegramUser {
+  id: number;
+  first_name: string;
+  last_name: string;
+  username: string;
+  photo_url: string;
+  auth_date: number;
+  hash: string;
+}
+
 const Home = () => {
-  const [chatId, setChatId] = useState<string>("");
+  const [user, setUser] = useState<TelegramUser | null>(null);
   const [habits, setHabits] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const fetchHabits = async () => {
+  useEffect(() => {
+    // Check for Telegram user data in URL or local storage
+    const storedUser = localStorage.getItem("tgUser");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    } else {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("id")) {
+        const userData = Object.fromEntries(params.entries()) as any;
+        localStorage.setItem("tgUser", JSON.stringify(userData));
+        setUser(userData);
+      }
+    }
+  }, []);
+
+  const fetchHabits = async (chatId: number) => {
     setLoading(true);
     try {
       setError(null);
@@ -22,14 +47,18 @@ const Home = () => {
       );
       setHabits(response.data.habits);
     } catch (error) {
-      setError(
-        "Failed to fetch habits. Please check the chat ID and try again."
-      );
+      setError("Failed to fetch habits.");
       setHabits([]);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      fetchHabits(user.id);
+    }
+  }, [user]);
 
   return (
     <div className={styles.container}>
@@ -41,40 +70,43 @@ const Home = () => {
         </p>
 
         <div className={styles.grid}>
-          <div className={styles.card}>
-            <h3>View Your Habits</h3>
-            <div>
-              <label htmlFor="chatId">Enter your Telegram chat ID:</label>
-              <input
-                type="text"
-                id="chatId"
-                value={chatId}
-                onChange={(e) => setChatId(e.target.value)}
-                placeholder="Your Telegram chat ID"
-                className={styles.input}
-              />
+          {!user ? (
+            <div className={styles.card}>
+              <h3>Login with Telegram</h3>
+              <script
+                async
+                src="https://telegram.org/js/telegram-widget.js?7"
+                data-telegram-login="your_bot_username" // replace with your bot's username
+                data-size="large"
+                data-radius="10"
+                data-auth-url={`${window.location.origin}/api/auth`}
+                data-request-access="write"
+              ></script>
+            </div>
+          ) : (
+            <div className={styles.card}>
+              <h3>Hello, {user.first_name}!</h3>
               <button
-                onClick={fetchHabits}
-                disabled={loading}
+                onClick={() => fetchHabits(user.id)}
                 className={styles.button}
               >
-                {loading ? "Loading..." : "Fetch Habits"}
+                {loading ? "Loading..." : "View Habits"}
               </button>
+              {error && <p className={styles.error}>{error}</p>}
+              <div>
+                <h3>Your Habits:</h3>
+                {habits.length > 0 ? (
+                  <ul>
+                    {habits.map((habit, index) => (
+                      <li key={index}>{habit}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No habits found. Try creating some with the bot!</p>
+                )}
+              </div>
             </div>
-            {error && <p className={styles.error}>{error}</p>}
-            <div>
-              <h3>Your Habits:</h3>
-              {habits.length > 0 ? (
-                <ul>
-                  {habits.map((habit, index) => (
-                    <li key={index}>{habit}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No habits found. Try creating some with the bot!</p>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </main>
 
