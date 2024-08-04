@@ -1,17 +1,24 @@
 // utils/userSessions.ts
-import redisClient from "./redisClient";
+interface SessionData {
+  state: "idle" | "creatingHabit" | "connectingWallet";
+  habits?: string[];
+  walletAddress?: string;
+}
 
-const getSessionKey = (chatId: number) => `session:${chatId}`;
+// In-memory session storage
+const sessions: Record<number, SessionData> = {};
 
-export const getSession = async (chatId: number) => {
-  const data = await redisClient.get(getSessionKey(chatId));
-  return data ? JSON.parse(data) : null;
+export const getSession = async (chatId: number): Promise<SessionData> => {
+  return sessions[chatId] || { state: "idle" };
 };
 
-export const setSession = async (chatId: number, data: object) => {
-  await redisClient.set(getSessionKey(chatId), JSON.stringify(data));
+export const setSession = async (
+  chatId: number,
+  data: SessionData
+): Promise<void> => {
+  sessions[chatId] = data;
 };
 
-export const deleteSession = async (chatId: number) => {
-  await redisClient.del(getSessionKey(chatId));
+export const deleteSession = async (chatId: number): Promise<void> => {
+  delete sessions[chatId];
 };

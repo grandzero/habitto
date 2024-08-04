@@ -19,6 +19,7 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
 
     res.status(200).end();
   } else {
-    res.status(200).send("Use POST method to interact with this bot.");
+    console.log(`Received a non-POST request: ${req.method}`);
+    res.status(404).end();
   }
 };

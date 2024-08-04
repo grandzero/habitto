@@ -1,7 +1,5 @@
 // utils/handleTelegramMessage.ts
 import axios from "axios";
-import { addHabit, listHabits } from "./habitManager";
-import { connectWallet } from "./wallet";
 import { getSession, setSession } from "./userSessions";
 import { mainMenu, connectWalletInstructions } from "../components/messages";
 
@@ -19,67 +17,59 @@ const sendMessage = async (
   });
 };
 
-export const handleTelegramMessage = async (message: any, command?: string) => {
+export const handleTelegramMessage = async (message: any) => {
   const chatId = message.chat.id;
-  const text = command ? command : message.text.toLowerCase().trim();
-  let session = (await getSession(chatId)) || { state: "idle" };
+  const text = message.text.toLowerCase().trim();
+  let session = await getSession(chatId);
 
   switch (session.state) {
     case "idle":
-      switch (text) {
-        case "/start":
-          await sendMessage(chatId, mainMenu.text, {
-            reply_markup: { inline_keyboard: mainMenu.options },
-          });
-          break;
-        case "/newhabit":
-          session.state = "creatingHabit";
-          await setSession(chatId, session);
-          await sendMessage(chatId, "Please describe your new habit:");
-          break;
-        case "/listhabits":
-          const habits = await listHabits(chatId);
-          await sendMessage(
-            chatId,
-            habits.length
-              ? `Your habits:\n${habits
-                  .map((habit: any, index: number) => `${index + 1}. ${habit}`)
-                  .join("\n")}`
-              : "You have no habits."
-          );
-          break;
-        case "/connect":
-          session.state = "connectingWallet";
-          await setSession(chatId, session);
-          await sendMessage(chatId, connectWalletInstructions.text);
-          break;
-        default:
-          await sendMessage(
-            chatId,
-            "Unrecognized command. Please use /start to see available options."
-          );
+      if (text === "/start") {
+        await sendMessage(chatId, mainMenu.text, {
+          reply_markup: { inline_keyboard: mainMenu.options },
+        });
+      } else if (text === "/newhabit") {
+        session.state = "creatingHabit";
+        await setSession(chatId, session);
+        await sendMessage(chatId, "Please describe your new habit:");
+      } else if (text === "/listhabits") {
+        const habits = session.habits || [];
+        await sendMessage(
+          chatId,
+          habits.length
+            ? `Your habits:\n${habits
+                .map((habit, index) => `${index + 1}. ${habit}`)
+                .join("\n")}`
+            : "You have no habits."
+        );
+      } else if (text === "/connect") {
+        session.state = "connectingWallet";
+        await setSession(chatId, session);
+        await sendMessage(chatId, connectWalletInstructions.text);
+      } else {
+        await sendMessage(
+          chatId,
+          "Unrecognized command. Please use /start to see available options."
+        );
       }
       break;
 
     case "creatingHabit":
-      const addHabitResponse = await addHabit(chatId, text);
-      await sendMessage(chatId, addHabitResponse);
+      const habit = text;
+      session.habits = session.habits || [];
+      session.habits.push(habit);
+      await sendMessage(chatId, `Habit "${habit}" added.`);
       session.state = "idle";
       await setSession(chatId, session);
       break;
 
     case "connectingWallet":
       const walletAddress = text;
-      const connectWalletResponse = await connectWallet(walletAddress);
-      if (connectWalletResponse.success) {
-        await sendMessage(chatId, "Wallet connected successfully!");
-        session = { ...session, state: "idle", walletAddress };
-        await setSession(chatId, session);
-      } else {
-        await sendMessage(chatId, `Error: ${connectWalletResponse.message}`);
-        session.state = "idle";
-        await setSession(chatId, session);
-      }
+      // Simulate wallet connection success
+      await sendMessage(chatId, "Wallet connected successfully!");
+      session.walletAddress = walletAddress;
+      session.state = "idle";
+      await setSession(chatId, session);
       break;
 
     default:
